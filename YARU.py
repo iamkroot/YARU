@@ -1,5 +1,6 @@
 import hashlib
 import socket
+from threading import Timer
 
 
 class YARUSocket:
@@ -56,8 +57,29 @@ class YARUSocket:
         data = bytes(packet[cls._checksum_end : cls._checksum_end + length])
         return seq_num, data
 
-    def write(self, data, dest_addr, max_bytes=None):
-        pass
+    def connect(self, address):
+        self._sock.connect(address)
+
+    def write(self, data):
+        if self.send_seqnum >= self.send_base + self.WINDOW_SIZE:
+            raise Exception("Send buffer full")
+        self.send_seqnum += 1
+        pkt = self.make_packet(self.send_seqnum, data)
+        self.send_buf[self.send_seqnum] = pkt
+        self._sock.sendall(pkt)
+        self._start_timer(self.send_seqnum)
+
+    def _start_timer(self, seq_num):
+        timer = Timer(self.TIMEOUT, self.on_send_timeout, (seq_num,))
+        timer.start()
+        self.timers[self.send_seqnum] = timer
+
+    def on_send_timeout(self, seq_num):
+        try:
+            self._sock.send(self.send_buf[seq_num])
+        except KeyError:
+            raise Exception(f"Sequence num {seq_num} not in send buffer.")
+        self._start_timer(seq_num)
 
 
 if __name__ == '__main__':
