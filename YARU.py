@@ -7,12 +7,12 @@ class YARUSocket:
     TIMEOUT = 30
 
     # packet constants
-    MAX_BYTES = 65507
     SEQNUM_SIZE = 8
     LENGTH_SIZE = 2
     CHECKSUM_SIZE = 16
     _checksum_start = SEQNUM_SIZE + LENGTH_SIZE
     _checksum_end = _checksum_start + CHECKSUM_SIZE
+    MAX_DATA_SIZE = 65481  # 65535 - 20[IP] - 8[UDP] - 26[YARUDP]
 
     def __init__(self):
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -26,7 +26,7 @@ class YARUSocket:
     @classmethod
     def make_packet(cls, seq_num: int, data: bytes) -> bytes:
         length = len(data)
-        if length > cls.MAX_BYTES:
+        if length > cls.MAX_DATA_SIZE:
             raise ValueError("Data too long")
 
         # fill headers and data
