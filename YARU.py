@@ -4,7 +4,8 @@ import socket
 import select
 from threading import Thread, Timer
 
-logging.addLevelName(5, "trace")
+logging.TRACE = 5
+logging.addLevelName(logging.TRACE, "TRACE")
 logging.basicConfig(level=logging.DEBUG)
 
 
@@ -84,8 +85,9 @@ class YARUSocket:
         try:
             self._sock.send(self.send_buf[seq_num])
         except KeyError:
-            raise Exception(f"Sequence num {seq_num} not in send buffer.")
-        self._start_timer(seq_num)
+            logging.warning(f"{seq_num=} not in send buffer during timeout.")
+        else:
+            self._start_timer(seq_num)
 
     def _recv_loop(self):
         while True:
@@ -100,7 +102,7 @@ class YARUSocket:
     def _handle_pkt(self, pkt, address):
         try:
             seq_num, data = self.parse_packet(pkt)
-            logging.log(5, f"Received: {seq_num=} {data=}")
+            logging.log(logging.TRACE, f"Received: {seq_num=} {data=}")
         except AssertionError:
             logging.info("Corrupted packet received")
             return
