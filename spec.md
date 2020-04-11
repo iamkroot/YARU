@@ -57,7 +57,7 @@ YARU guarantees reliable delivery of packets. The application can use the follow
 
 *   connect(address): Establish a connection to another YARU socket.
 
-*   read(): Read the data sent by the connected socket, present in the buffer. If no data is available, it returns an empty string.
+*   read(): Read the data sent via datagram by the connected socket. If no data is available, it returns an empty string. Max size of data will be 65841 bytes.
 
 *   write(data): Send the data (of type bytes) to the connected socket. The data should be less than 65481 bytes long.
 

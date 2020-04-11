@@ -4,6 +4,7 @@ import socket
 import select
 from threading import Thread, Timer
 
+logging.addLevelName(5, "trace")
 logging.basicConfig(level=logging.DEBUG)
 
 
@@ -32,6 +33,7 @@ class YARUSocket:
         self.recv_base = 0
         self.send_seqnum = 0
         self.recv_thread = Thread(target=self._recv_loop, name="recv_thread")
+        self.recv_thread.daemon = True
         self.recv_thread.start()
 
     @classmethod
@@ -73,6 +75,7 @@ class YARUSocket:
 
     def _start_timer(self, seq_num):
         timer = Timer(self.TIMEOUT, self._handle_timeout, (seq_num,))
+        timer.daemon = True
         timer.start()
         self.timers[self.send_seqnum] = timer
 
@@ -97,7 +100,7 @@ class YARUSocket:
     def _handle_pkt(self, pkt, address):
         try:
             seq_num, data = self.parse_packet(pkt)
-            logging.trace(f"Received: {seq_num=} {data=}")
+            logging.log(5, f"Received: {seq_num=} {data=}")
         except AssertionError:
             logging.info("Corrupted packet received")
             return
@@ -130,12 +133,13 @@ class YARUSocket:
         self._sock.connect(address)
 
     def read(self):
-        """Read the data sent by the connected socket, present in the buffer.
+        """Read the data sent via datagram by the connected socket.
 
+        Max size of data will be 65841 bytes.
         If no data is available, it returns an empty string.
         """
         buf = bytearray()
-        while self.recv_base in self.recv_buf:
+        if self.recv_base in self.recv_buf:
             buf += self.recv_buf[self.recv_base]
             self.recv_base += 1
             logging.debug(f"Updated {self.recv_base=}")
