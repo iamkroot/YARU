@@ -39,7 +39,7 @@ Packet layout
 
 *   Sequence Number: 64-bit sequence number of the current packet. For ACK packets, this value should be the same as that of the packet being acknowledged.
 
-*   Length: 16-bit number, which is the length in octets of this packet including this header and the data. Should be at least 208 (size of header), and at most 65507 (maximum allowed for UDP over IP). This field should be 0 for ACK packets.
+*   Length: 16-bit number, which is the length in octets of the actual data payload. Should be at least 0, and at most 65481. This field should be 0 for ACK packets.
 
 *   Checksum: 128-bit checksum of the YARU packet, calculated by first creating the entire packet with checksum field as 0, and then storing its MD5 hash into the correct location.
 
