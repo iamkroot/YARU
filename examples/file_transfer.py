@@ -30,15 +30,20 @@ def receiver(address: ipaddress.IPv4Address, port: int, directory: Path, **kwarg
         if data.startswith(NAME_MARKER):  # first packet has filename
             file_name = data[len(NAME_MARKER) :].decode()
             file = open(directory / file_name, "wb")
-            size = 0
             logging.info(f"Receiving {file_name}")
+            size, start_time = 0, time.time()
         elif data == END_MARKER:  # finished sending data
+            delta_time = time.time() - start_time
             file.close()
             break
         else:  # file contents received, store to file
             size += len(data)
             file.write(data)
-    logging.info(f"Completed receiving {file_name}, {size} bytes")
+    sock.close()
+    logging.info(
+        f"Completed receiving {file_name}, {size} bytes, "
+        f"{delta_time:.3f} seconds, speed={size / delta_time:.3f}BPS"
+    )
 
 
 def sender(address: ipaddress.IPv4Address, port: int, file: Path, **kwargs):
@@ -53,9 +58,14 @@ def sender(address: ipaddress.IPv4Address, port: int, file: Path, **kwargs):
     offset = 0
 
     while offset < total_size:
-        sock.write(file_data[offset : offset + pkt_size])
-        offset += pkt_size
+        try:
+            sock.write(file_data[offset : offset + pkt_size])
+        except Exception:
+            time.sleep(1)
+        else:
+            offset += pkt_size
     sock.write(END_MARKER)
+    sock.close()
     logging.info(f"Completed sending {file.name}, {total_size} bytes")
 
 
@@ -98,4 +108,5 @@ if __name__ == "__main__":
     args = parser.parse_args()
     if not hasattr(args, "func"):
         raise argparse.ArgumentError(None, "Invalid role chosen")
+    logging.basicConfig(level=args.loglevel)
     args.func(**vars(args))
