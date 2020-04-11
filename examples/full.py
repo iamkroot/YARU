@@ -8,7 +8,7 @@ YARUSocket.TIMEOUT = 3
 
 def server(port):
     sock = YARUSocket()
-    sock._sock.bind(("127.0.0.1", port))
+    sock.bind(("127.0.0.1", port))
     while True:
         time.sleep(1)
         print(sock.read())
