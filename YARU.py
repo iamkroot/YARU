@@ -2,18 +2,18 @@ import hashlib
 import logging
 import socket
 import select
+import time
 from threading import Thread, Timer
 
 logging.TRACE = 5
 logging.addLevelName(logging.TRACE, "TRACE")
-logging.basicConfig(level=logging.DEBUG)
 
 
 class YARUSocket:
     """Represents a socket for YARU protocol."""
 
     WINDOW_SIZE = 1024
-    TIMEOUT = 30
+    TIMEOUT = 1
 
     # packet constants
     SEQNUM_SIZE = 8
@@ -33,8 +33,8 @@ class YARUSocket:
         self.send_base = 0
         self.recv_base = 0
         self.send_seqnum = 0
+        self.is_running = True
         self.recv_thread = Thread(target=self._recv_loop, name="recv_thread")
-        self.recv_thread.daemon = True
         self.recv_thread.start()
 
     @classmethod
@@ -76,24 +76,37 @@ class YARUSocket:
 
     def _start_timer(self, seq_num):
         timer = Timer(self.TIMEOUT, self._handle_timeout, (seq_num,))
-        timer.daemon = True
         timer.start()
         self.timers[self.send_seqnum] = timer
 
     def _handle_timeout(self, seq_num):
+        if not self.is_running:
+            return
         logging.debug(f"Timed out for {seq_num=}")
         try:
             self._sock.send(self.send_buf[seq_num])
         except KeyError:
-            logging.warning(f"{seq_num=} not in send buffer during timeout.")
+            logging.debug(f"{seq_num=} not in send buffer during timeout.")
+        except (ConnectionRefusedError, ConnectionAbortedError):
+            logging.warning(f"Connection closed {seq_num=}.")
+            self.send_buf.clear()
+            self.close()
         else:
             self._start_timer(seq_num)
 
     def _recv_loop(self):
-        while True:
+        while self.is_running:
             r, _, _ = select.select([self._sock], [], [], 0.1)
-            pkt, address = self._sock.recvfrom(self.MAX_IP_SIZE)
-            self._handle_pkt(pkt, address)
+            if r != [self._sock]:
+                continue
+            try:
+                pkt, address = self._sock.recvfrom(self.MAX_IP_SIZE)
+            except ConnectionRefusedError:
+                logging.warning("Connection closed.")
+                self.send_buf.clear()
+                self.is_running = False
+            else:
+                self._handle_pkt(pkt, address)
 
     def _send_ack(self, seq_num, address):
         logging.debug(f"Sending ack for {seq_num=}")
@@ -124,7 +137,7 @@ class YARUSocket:
         elif self.recv_base - self.WINDOW_SIZE <= seq_num < self.recv_base:
             self._send_ack(seq_num, address)
         else:
-            logging.warning(f"Outside window: {self.recv_base=}, {seq_num=}, {data=}")
+            logging.debug(f"Outside window: {self.recv_base=}, {seq_num=}")
 
     def bind(self, address):
         """Bind the socket to the given interface and port."""
@@ -159,3 +172,13 @@ class YARUSocket:
         self._start_timer(self.send_seqnum)
         self._sock.sendall(pkt)
         self.send_seqnum += 1
+
+    def close(self):
+        """Clear the buffers and close the connection."""
+
+        while self.send_buf:
+            time.sleep(1)  # can't close if there's data to be sent
+        for timer in self.timers.values():
+            timer.cancel()
+        self.is_running = False
+        self._sock.close()
