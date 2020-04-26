@@ -13,7 +13,7 @@ class YARUSocket:
     """Represents a socket for YARU protocol."""
 
     WINDOW_SIZE = 1024
-    TIMEOUT = 1
+    TIMEOUT = 0.5
 
     # packet constants
     SEQNUM_SIZE = 8
@@ -96,17 +96,16 @@ class YARUSocket:
 
     def _recv_loop(self):
         while self.is_running:
-            r, _, _ = select.select([self._sock], [], [], 0.1)
-            if r != [self._sock]:
-                continue
             try:
+                r, _, _ = select.select([self._sock], [], [], 0.1)
+                if r != [self._sock]:
+                    continue
                 pkt, address = self._sock.recvfrom(self.MAX_IP_SIZE)
-            except ConnectionRefusedError:
+                self._handle_pkt(pkt, address)
+            except (ConnectionRefusedError, ConnectionAbortedError, OSError):
                 logging.warning("Connection closed.")
                 self.send_buf.clear()
                 self.is_running = False
-            else:
-                self._handle_pkt(pkt, address)
 
     def _send_ack(self, seq_num, address):
         logging.debug(f"Sending ack for {seq_num=}")
@@ -173,9 +172,12 @@ class YARUSocket:
         self._sock.sendall(pkt)
         self.send_seqnum += 1
 
-    def close(self):
+    def close(self, timeout=120):
         """Clear the buffers and close the connection."""
-
+        def flush_timeout():
+            self.send_buf = {}
+        if timeout:
+            Timer(timeout, flush_timeout).start()
         while self.send_buf:
             time.sleep(1)  # can't close if there's data to be sent
         for timer in self.timers.values():
