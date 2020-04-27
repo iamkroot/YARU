@@ -61,7 +61,8 @@ YARU guarantees reliable delivery of packets. The application can use the follow
 
 *   write(data): Send the data (of type bytes) to the connected socket. The data should be less than 65481 bytes long.
 
-*   close(): Close the connection after clearing all buffers.
+*   close([timeout]): Wait for the connection to close, optionally kill it after timeout seconds (default: 120s).
+
 
 Beware that there is no flow control, so it is possible to deadlock the socket in certain situations.
 
