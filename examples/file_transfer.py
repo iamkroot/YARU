@@ -44,6 +44,9 @@ def receiver(address: ipaddress.IPv4Address, port: int, directory: Path, **kwarg
         f"Completed receiving {file_name}, {size} bytes, "
         f"{delta_time:.3f} seconds, speed={size / delta_time:.3f}BPS"
     )
+    if 'result' in kwargs:
+        kwargs['result']['size'] = size
+        kwargs['result']['time'] = delta_time
 
 
 def sender(address: ipaddress.IPv4Address, port: int, file: Path, **kwargs):
