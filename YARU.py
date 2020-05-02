@@ -174,7 +174,11 @@ class YARUSocket:
 
     def close(self, timeout=120):
         """Clear the buffers and close the connection."""
+        timed_out = False
+
         def flush_timeout():
+            nonlocal timed_out
+            timed_out = True
             self.send_buf = {}
         if timeout:
             Timer(timeout, flush_timeout).start()
@@ -184,3 +188,5 @@ class YARUSocket:
             timer.cancel()
         self.is_running = False
         self._sock.close()
+        if timed_out:
+            raise TimeoutError
