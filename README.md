@@ -19,7 +19,7 @@ Additionally, a [Wireshark](https://wireshark.org/) plugin has also been created
 
 ## Running
 
-You need at least Python 3.7 installed in your system to be able to run the code.
+You need at least Python 3.8 installed in your system to be able to run the code.
 
 Each example is given in a Client/Server architecture, which can be selected using a command line argument. So, you will need two terminals to run the examples. Always run the server first.
 
